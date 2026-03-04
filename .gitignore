@@ -1,7 +1,2 @@
-<<<<<<< HEAD
 .env
 internal/api
-=======
-internal/api
-.env
->>>>>>> 091e4f5 (initial work)
