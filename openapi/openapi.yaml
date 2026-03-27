@@ -1,0 +1,451 @@
+openapi: 3.0.3
+info:
+  title: Marketplace API - Products
+  version: "1.0.0"
+  description: OpenAPI specification for Product CRUD (pagination, filtering, validation, error contract).
+servers:
+  - url: http://localhost:8080
+paths:
+  /products:
+    post:
+      summary: Create product
+      operationId: createProduct
+      tags:
+        - Products
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreate'
+      responses:
+        "201":
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden (ACCESS_DENIED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: List products with pagination and filtering
+      operationId: listProducts
+      tags:
+        - Products
+      parameters:
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/sizeParam'
+        - $ref: '#/components/parameters/statusFilter'
+        - $ref: '#/components/parameters/categoryFilter'
+      responses:
+        "200":
+          description: Paginated list of products
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /products/{id}:
+    get:
+      summary: Get product by id
+      operationId: getProductById
+      tags:
+        - Products
+      parameters:
+        - $ref: '#/components/parameters/idParam'
+      responses:
+        "200":
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Update product
+      operationId: updateProduct
+      tags:
+        - Products
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/idParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdate'
+      responses:
+        "200":
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden (ACCESS_DENIED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Soft-delete product (set status = ARCHIVED)
+      operationId: deleteProduct
+      tags:
+        - Products
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/idParam'
+      responses:
+        "204":
+          description: Product archived
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden (ACCESS_DENIED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    idParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Product identifier (UUID)
+    pageParam:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: Page number (starting from 0)
+    sizeParam:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 20
+      description: Page size
+    statusFilter:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/ProductStatus'
+      description: Filter by product status (exact match)
+    categoryFilter:
+      name: category
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Filter by category (exact match)
+
+  schemas:
+    # Enum for product status
+    ProductStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+        - ARCHIVED
+      description: Product status
+
+    # Product create request
+    ProductCreate:
+      type: object
+      required:
+        - name
+        - price
+        - stock
+        - category
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Product name
+        description:
+          type: string
+          maxLength: 4000
+          nullable: true
+          description: Product description
+        price:
+          type: number
+          format: float
+          minimum: 0.01
+          description: Price (float, > 0)
+        stock:
+          type: integer
+          minimum: 0
+          description: Stock (>= 0)
+        category:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Product category (exact match string)
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+          description: Initial status (default ACTIVE)
+      example:
+        name: "T-shirt"
+        description: "Cotton t-shirt"
+        price: 19.99
+        stock: 100
+        category: "clothing"
+        status: "ACTIVE"
+
+    # Product update request (partial fields allowed but validated)
+    ProductUpdate:
+      type: object
+      required:
+        - name
+        - price
+        - stock
+        - category
+        - status
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 4000
+          nullable: true
+        price:
+          type: number
+          format: float
+          minimum: 0.01
+        stock:
+          type: integer
+          minimum: 0
+        category:
+          type: string
+          minLength: 1
+          maxLength: 100
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+      example:
+        name: "T-shirt - new"
+        price: 17.50
+        stock: 90
+        category: "clothing"
+        status: "ACTIVE"
+
+    # Product response
+    ProductResponse:
+      type: object
+      required:
+        - id
+        - name
+        - price
+        - stock
+        - category
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 4000
+          nullable: true
+        price:
+          type: number
+          format: float
+        stock:
+          type: integer
+        category:
+          type: string
+          maxLength: 100
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+        seller_id:
+          type: string
+          format: uuid
+          description: Owner (seller) id
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      example:
+        id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        name: "T-shirt"
+        description: "Cotton t-shirt"
+        price: 19.99
+        stock: 100
+        category: "clothing"
+        status: "ACTIVE"
+        seller_id: "9b2b1a4e-8c1b-4b2f-9c2a-111111111111"
+        created_at: "2025-01-01T12:00:00Z"
+        updated_at: "2025-01-01T12:00:00Z"
+
+    # Paginated product list response
+    ProductListResponse:
+      type: object
+      required:
+        - items
+        - totalElements
+        - page
+        - size
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductResponse'
+        totalElements:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+      example:
+        items: []
+        totalElements: 0
+        page: 0
+        size: 20
+
+    # Unified error response
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - message
+      properties:
+        error_code:
+          type: string
+          description: Machine-readable error code (e.g. PRODUCT_NOT_FOUND)
+        message:
+          type: string
+          description: Human-readable message
+        details:
+          type: object
+          nullable: true
+          description: Additional details (field errors, lists, etc.)
+      example:
+        error_code: "VALIDATION_ERROR"
+        message: "One or more validation errors occurred"
+        details:
+          fields:
+            name: "must not be empty"
+            price: "must be >= 0.01"
+
+  # Reference of well-known API error codes used in the service (informational)
+  examples:
+    ProductNotFound:
+      value:
+        error_code: "PRODUCT_NOT_FOUND"
+        message: "Product not found by id"
+    ValidationError:
+      value:
+        error_code: "VALIDATION_ERROR"
+        message: "Validation failed"
+        details:
+          fields:
+            name: "minLength: 1"
+  # (Optional) document common error codes (human-readable)
+  x-error-codes:
+    - code: PRODUCT_NOT_FOUND
+      httpStatus: 404
+      description: Товар не найден по ID
+    - code: PRODUCT_INACTIVE
+      httpStatus: 409
+      description: Попытка оперировать с неактивным товаром
+    - code: VALIDATION_ERROR
+      httpStatus: 400
+      description: Ошибка валидации входных данных
+    - code: ACCESS_DENIED
+      httpStatus: 403
+      description: Недостаточно прав
+    - code: TOKEN_EXPIRED
+      httpStatus: 401
+      description: Access token expired or invalid
